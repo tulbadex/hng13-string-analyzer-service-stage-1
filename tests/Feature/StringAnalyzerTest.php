@@ -88,7 +88,7 @@ class StringAnalyzerTest extends TestCase
         $response = $this->postJson('/strings', []);
         
         $response->assertStatus(400)
-                 ->assertJson(['error' => 'Missing value field']);
+                 ->assertJson(['error' => 'Invalid request body or missing \'value\' field']);
     }
     
     public function test_post_invalid_data_type_returns_422()
@@ -96,7 +96,7 @@ class StringAnalyzerTest extends TestCase
         $response = $this->postJson('/strings', ['value' => 123]);
         
         $response->assertStatus(422)
-                 ->assertJson(['error' => 'Value must be a string']);
+                 ->assertJson(['error' => 'Invalid data type for \'value\' field']);
     }
     
     public function test_post_null_value_returns_422()
@@ -104,7 +104,7 @@ class StringAnalyzerTest extends TestCase
         $response = $this->postJson('/strings', ['value' => null]);
         
         $response->assertStatus(422)
-                 ->assertJson(['error' => 'Value must be a string']);
+                 ->assertJson(['error' => 'Invalid data type for \'value\' field']);
     }
     
     public function test_post_array_value_returns_422()
@@ -112,7 +112,7 @@ class StringAnalyzerTest extends TestCase
         $response = $this->postJson('/strings', ['value' => ['test']]);
         
         $response->assertStatus(422)
-                 ->assertJson(['error' => 'Value must be a string']);
+                 ->assertJson(['error' => 'Invalid data type for \'value\' field']);
     }
     
     public function test_post_empty_string_returns_422()
@@ -120,7 +120,7 @@ class StringAnalyzerTest extends TestCase
         $response = $this->postJson('/strings', ['value' => '']);
         
         $response->assertStatus(422)
-                 ->assertJson(['error' => 'Value must be a string']);
+                 ->assertJson(['error' => 'Invalid data type for \'value\' field']);
     }
     
     public function test_get_strings_with_invalid_parameters_returns_400()

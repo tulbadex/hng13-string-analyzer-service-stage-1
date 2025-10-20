@@ -11,23 +11,24 @@ class StringController extends Controller
 {
     public function store(Request $request)
     {
-        try {
-            $validated = $request->validate([
-                'value' => 'required|string|min:1',
-            ]);
-        } catch (\Illuminate\Validation\ValidationException $e) {
-            $errors = $e->errors();
-            
-            // Check if value field is missing
-            if (!$request->has('value')) {
-                return response()->json(['error' => 'Missing value field'], 400);
-            }
-            
-            // If validation failed, it means invalid data type or empty string
-            return response()->json(['error' => 'Value must be a string'], 422);
+        // Check if 'value' key exists in request body
+        if (!array_key_exists('value', $request->all())) {
+            return response()->json(['error' => 'Invalid request body or missing \'value\' field'], 400);
         }
         
-        $value = $validated['value'];
+        $value = $request->input('value');
+        
+        // Check if value is not a string (invalid data type)
+        if (!is_string($value)) {
+            return response()->json(['error' => 'Invalid data type for \'value\' field'], 422);
+        }
+        
+        // Check if string is empty (min:1 validation)
+        if (empty($value)) {
+            return response()->json(['error' => 'Invalid data type for \'value\' field'], 422);
+        }
+        
+        // $value is already set above
         
         $hash = hash('sha256', $value);
         
@@ -128,8 +129,8 @@ class StringController extends Controller
                 if (!is_string($char) || strlen($char) !== 1) {
                     return response()->json(['error' => 'Invalid query parameter values or types'], 400);
                 }
-                // Use LIKE for SQLite JSON compatibility
-                $query->whereRaw('character_frequency_map LIKE ?', ['%"' . $char . '":%']);
+                // Use value contains like Python version
+                $query->where('value', 'LIKE', '%' . $char . '%');
                 $filters['contains_character'] = $char;
             }
             
@@ -191,7 +192,7 @@ class StringController extends Controller
                         $queryBuilder->where('length', '<=', $value);
                         break;
                     case 'contains_character':
-                        $queryBuilder->whereRaw('character_frequency_map LIKE ?', ['%"' . $value . '":%']);
+                        $queryBuilder->where('value', 'LIKE', '%' . $value . '%');
                         break;
                 }
             }
@@ -244,52 +245,35 @@ class StringController extends Controller
         $filters = [];
         $query = strtolower(trim($query));
         
-        // Palindrome detection - more comprehensive
-        if (preg_match('/palindrom(ic|e)?/i', $query)) {
+        // Palindrome detection (matches Python version)
+        if (strpos($query, 'palindrome') !== false || strpos($query, 'palindromic') !== false) {
             $filters['is_palindrome'] = true;
         }
         
-        // Word count detection - comprehensive patterns
-        if (preg_match('/\bsingle word\b/', $query)) {
-            $filters['word_count'] = 1;
-        } elseif (preg_match('/\bone word\b/', $query)) {
-            $filters['word_count'] = 1;
-        } elseif (preg_match('/\b(\d+)\s+words?\b/', $query, $matches)) {
-            $filters['word_count'] = (int)$matches[1];
-        } elseif (preg_match('/\b(two|three|four|five)\s+words?\b/', $query, $matches)) {
-            $wordMap = ['two' => 2, 'three' => 3, 'four' => 4, 'five' => 5];
-            $filters['word_count'] = $wordMap[$matches[1]];
+        // Length detection (matches Python version)
+        if (preg_match('/longer than (\d+)/', $query, $matches)) {
+            $filters['min_length'] = (int)$matches[1] + 1;
         }
-        
-        // Length detection - comprehensive patterns
-        if (preg_match('/\blonger than (\d+)\b/', $query, $matches)) {
-            $filters['min_length'] = (int)$matches[1] + 1;
-        } elseif (preg_match('/\bmore than (\d+) characters?\b/', $query, $matches)) {
-            $filters['min_length'] = (int)$matches[1] + 1;
-        } elseif (preg_match('/\bat least (\d+) characters?\b/', $query, $matches)) {
-            $filters['min_length'] = (int)$matches[1];
-        } elseif (preg_match('/\bshorter than (\d+)\b/', $query, $matches)) {
-            $filters['max_length'] = (int)$matches[1] - 1;
-        } elseif (preg_match('/\bless than (\d+) characters?\b/', $query, $matches)) {
+        if (preg_match('/shorter than (\d+)/', $query, $matches)) {
             $filters['max_length'] = (int)$matches[1] - 1;
         }
         
-        // Character detection - comprehensive patterns
-        if (preg_match('/\bcontaining.*?\bletter ([a-z])\b/i', $query, $matches)) {
-            $filters['contains_character'] = strtolower($matches[1]);
-        } elseif (preg_match('/\bcontain.*?\bletter ([a-z])\b/i', $query, $matches)) {
-            $filters['contains_character'] = strtolower($matches[1]);
-        } elseif (preg_match('/\bwith.*?\bletter ([a-z])\b/i', $query, $matches)) {
-            $filters['contains_character'] = strtolower($matches[1]);
-        } elseif (preg_match('/\bhave.*?\bletter ([a-z])\b/i', $query, $matches)) {
-            $filters['contains_character'] = strtolower($matches[1]);
-        } elseif (preg_match('/\bthe letter ([a-z])\b/i', $query, $matches)) {
-            $filters['contains_character'] = strtolower($matches[1]);
-        } elseif (preg_match('/\bletter ([a-z])\b/i', $query, $matches)) {
-            $filters['contains_character'] = strtolower($matches[1]);
-        } elseif (preg_match('/\bfirst vowel\b/', $query)) {
-            $filters['contains_character'] = 'a';
-        } elseif (preg_match('/\bvowel a\b/', $query)) {
+        // Word count detection (matches Python version)
+        if (strpos($query, 'single word') !== false) {
+            $filters['word_count'] = 1;
+        } elseif (strpos($query, 'two words') !== false) {
+            $filters['word_count'] = 2;
+        } elseif (strpos($query, 'three words') !== false) {
+            $filters['word_count'] = 3;
+        }
+        
+        // Character detection (matches Python version)
+        if (preg_match('/contain(?:s|ing)? the letter ([a-z])/', $query, $matches)) {
+            $filters['contains_character'] = $matches[1];
+        }
+        
+        // Handle special phrase "first vowel" (matches Python version)
+        if (strpos($query, 'first vowel') !== false) {
             $filters['contains_character'] = 'a';
         }
         
