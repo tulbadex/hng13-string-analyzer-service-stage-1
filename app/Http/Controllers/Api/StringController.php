@@ -11,17 +11,24 @@ class StringController extends Controller
 {
     public function store(Request $request)
     {
-        // Check if request has value field
-        if (!$request->has('value')) {
-            return response()->json(['error' => 'Missing value field'], 400);
-        }
-        
-        // Check if value is string
-        if (!is_string($request->input('value'))) {
+        try {
+            $validated = $request->validate([
+                'value' => 'required|string|min:1',
+            ]);
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            $errors = $e->errors();
+            
+            // Check if value field is missing
+            if (!$request->has('value')) {
+                return response()->json(['error' => 'Missing value field'], 400);
+            }
+            
+            // If validation failed, it means invalid data type or empty string
             return response()->json(['error' => 'Value must be a string'], 422);
         }
         
-        $value = $request->input('value');
+        $value = $validated['value'];
+        
         $hash = hash('sha256', $value);
         
         if (AnalyzedString::find($hash)) {
@@ -121,6 +128,7 @@ class StringController extends Controller
                 if (!is_string($char) || strlen($char) !== 1) {
                     return response()->json(['error' => 'Invalid query parameter values or types'], 400);
                 }
+                // Use LIKE for SQLite JSON compatibility
                 $query->whereRaw('character_frequency_map LIKE ?', ['%"' . $char . '":%']);
                 $filters['contains_character'] = $char;
             }
@@ -236,45 +244,53 @@ class StringController extends Controller
         $filters = [];
         $query = strtolower(trim($query));
         
-        // Palindrome detection
-        if (preg_match('/palindrom/i', $query)) {
+        // Palindrome detection - more comprehensive
+        if (preg_match('/palindrom(ic|e)?/i', $query)) {
             $filters['is_palindrome'] = true;
         }
         
-        // Word count detection - more specific patterns
-        if (preg_match('/single word/', $query)) {
+        // Word count detection - comprehensive patterns
+        if (preg_match('/\bsingle word\b/', $query)) {
             $filters['word_count'] = 1;
-        } elseif (preg_match('/one word/', $query)) {
+        } elseif (preg_match('/\bone word\b/', $query)) {
             $filters['word_count'] = 1;
-        } elseif (preg_match('/(\d+)\s+words?/', $query, $matches)) {
+        } elseif (preg_match('/\b(\d+)\s+words?\b/', $query, $matches)) {
             $filters['word_count'] = (int)$matches[1];
+        } elseif (preg_match('/\b(two|three|four|five)\s+words?\b/', $query, $matches)) {
+            $wordMap = ['two' => 2, 'three' => 3, 'four' => 4, 'five' => 5];
+            $filters['word_count'] = $wordMap[$matches[1]];
         }
         
-        // Length detection
-        if (preg_match('/longer than (\d+)/', $query, $matches)) {
+        // Length detection - comprehensive patterns
+        if (preg_match('/\blonger than (\d+)\b/', $query, $matches)) {
             $filters['min_length'] = (int)$matches[1] + 1;
-        }
-        if (preg_match('/shorter than (\d+)/', $query, $matches)) {
+        } elseif (preg_match('/\bmore than (\d+) characters?\b/', $query, $matches)) {
+            $filters['min_length'] = (int)$matches[1] + 1;
+        } elseif (preg_match('/\bat least (\d+) characters?\b/', $query, $matches)) {
+            $filters['min_length'] = (int)$matches[1];
+        } elseif (preg_match('/\bshorter than (\d+)\b/', $query, $matches)) {
+            $filters['max_length'] = (int)$matches[1] - 1;
+        } elseif (preg_match('/\bless than (\d+) characters?\b/', $query, $matches)) {
             $filters['max_length'] = (int)$matches[1] - 1;
         }
-        if (preg_match('/more than (\d+) characters?/', $query, $matches)) {
-            $filters['min_length'] = (int)$matches[1] + 1;
-        }
-        if (preg_match('/at least (\d+) characters?/', $query, $matches)) {
-            $filters['min_length'] = (int)$matches[1];
-        }
         
-        // Character detection - improved patterns
-        if (preg_match('/containing.*letter ([a-z])/i', $query, $matches)) {
+        // Character detection - comprehensive patterns
+        if (preg_match('/\bcontaining.*?\bletter ([a-z])\b/i', $query, $matches)) {
             $filters['contains_character'] = strtolower($matches[1]);
-        } elseif (preg_match('/contain.*letter ([a-z])/i', $query, $matches)) {
+        } elseif (preg_match('/\bcontain.*?\bletter ([a-z])\b/i', $query, $matches)) {
             $filters['contains_character'] = strtolower($matches[1]);
-        } elseif (preg_match('/with.*letter ([a-z])/i', $query, $matches)) {
+        } elseif (preg_match('/\bwith.*?\bletter ([a-z])\b/i', $query, $matches)) {
             $filters['contains_character'] = strtolower($matches[1]);
-        } elseif (preg_match('/first vowel/', $query)) {
+        } elseif (preg_match('/\bhave.*?\bletter ([a-z])\b/i', $query, $matches)) {
+            $filters['contains_character'] = strtolower($matches[1]);
+        } elseif (preg_match('/\bthe letter ([a-z])\b/i', $query, $matches)) {
+            $filters['contains_character'] = strtolower($matches[1]);
+        } elseif (preg_match('/\bletter ([a-z])\b/i', $query, $matches)) {
+            $filters['contains_character'] = strtolower($matches[1]);
+        } elseif (preg_match('/\bfirst vowel\b/', $query)) {
             $filters['contains_character'] = 'a';
-        } elseif (preg_match('/letter ([a-z])/', $query, $matches)) {
-            $filters['contains_character'] = strtolower($matches[1]);
+        } elseif (preg_match('/\bvowel a\b/', $query)) {
+            $filters['contains_character'] = 'a';
         }
         
         return $filters;

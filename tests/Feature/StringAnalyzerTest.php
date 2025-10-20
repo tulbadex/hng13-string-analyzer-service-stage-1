@@ -115,6 +115,14 @@ class StringAnalyzerTest extends TestCase
                  ->assertJson(['error' => 'Value must be a string']);
     }
     
+    public function test_post_empty_string_returns_422()
+    {
+        $response = $this->postJson('/strings', ['value' => '']);
+        
+        $response->assertStatus(422)
+                 ->assertJson(['error' => 'Value must be a string']);
+    }
+    
     public function test_get_strings_with_invalid_parameters_returns_400()
     {
         $response = $this->getJson('/strings?is_palindrome=invalid');

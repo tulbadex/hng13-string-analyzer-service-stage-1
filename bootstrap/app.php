@@ -15,6 +15,9 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->web(remove: [
             \Illuminate\Foundation\Http\Middleware\VerifyCsrfToken::class,
         ]);
+        $middleware->remove([
+            \Illuminate\Foundation\Http\Middleware\ConvertEmptyStringsToNull::class,
+        ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
         //
