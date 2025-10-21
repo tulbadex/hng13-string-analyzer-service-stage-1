@@ -4,12 +4,6 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 
-if (!function_exists('mb_strrev')) {
-    function mb_strrev($str) {
-        return implode('', array_reverse(mb_str_split($str)));
-    }
-}
-
 class AnalyzedString extends Model
 {
     protected $primaryKey = 'id';
@@ -38,8 +32,8 @@ class AnalyzedString extends Model
         $length = mb_strlen($value);
         
         // Case-insensitive palindrome check
-        $lowerValue = mb_strtolower($value);
-        $reversedValue = mb_strrev($lowerValue);
+        $lowerValue = strtolower($value);
+        $reversedValue = strrev($lowerValue);
         $isPalindrome = $lowerValue === $reversedValue;
         
         $uniqueChars = count(array_unique(mb_str_split($value)));
