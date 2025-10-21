@@ -13,11 +13,6 @@ class StringController extends Controller
     {
         // Check if request has value key
         if (!$request->has('value')) {
-            // Check if raw input contains 'value' but failed to parse (malformed JSON with numbers)
-            $rawInput = $request->getContent();
-            if (strpos($rawInput, '"value"') !== false || strpos($rawInput, 'value') !== false) {
-                return response()->json(['error' => 'Invalid data type for value field'], 422);
-            }
             return response()->json(['error' => 'Invalid request body or missing value field'], 400);
         }
         
@@ -37,12 +32,7 @@ class StringController extends Controller
         if (is_numeric($value)) {
             return response()->json(['error' => 'Invalid data type for value field'], 422);
         }
-        
-        $validation = $request->validate([
-            'value' => 'required|string|min:1',
-        ]);
 
-        $value = $validation['value'];
         $hash = hash('sha256', $value);
 
         if (AnalyzedString::find($hash)) {
@@ -57,7 +47,7 @@ class StringController extends Controller
             'value' => $analyzedString->value,
             'properties' => [
                 'length' => $analyzedString->length,
-                'is_palindrome' => $analyzedString->is_palindrome,
+                'is_palindrome' => (bool)$analyzedString->is_palindrome,
                 'unique_characters' => $analyzedString->unique_characters,
                 'word_count' => $analyzedString->word_count,
                 'sha256_hash' => $analyzedString->sha256_hash,
@@ -81,7 +71,7 @@ class StringController extends Controller
             'value' => $analyzedString->value,
             'properties' => [
                 'length' => $analyzedString->length,
-                'is_palindrome' => $analyzedString->is_palindrome,
+                'is_palindrome' => (bool)$analyzedString->is_palindrome,
                 'unique_characters' => $analyzedString->unique_characters,
                 'word_count' => $analyzedString->word_count,
                 'sha256_hash' => $analyzedString->sha256_hash,
